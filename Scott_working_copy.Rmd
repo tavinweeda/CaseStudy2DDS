@@ -1,0 +1,33 @@
+# Load Libraries
+```{r}
+library(tidyverse)
+library(RColorBrewer)
+library(cowplot)
+library(class)
+library(caret)
+library(e1071)
+library(stringr)
+```
+
+
+# Load in the data
+```{r}
+data = read.csv(file.choose(), header=T)
+```
+
+
+# Look at the data
+```{r}
+str(data)
+head(data)
+
+#Looking for relationships
+ggplot(data, aes(x=Age, y=DailyRate, color=Attrition)) +
+  geom_point() +
+  geom_jitter() +
+  geom_smooth() +
+  ggtitle("Relationship Between ABV vs IBU")
+
+```
+
+
