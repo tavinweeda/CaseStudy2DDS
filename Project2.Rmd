@@ -1,0 +1,373 @@
+---
+title: "DDS Project 2"
+author: "Tavin Weeda and Scott Frazier"
+date: "12/10/2021"
+output: pdf_document
+---
+
+```{r}
+library(tidyverse)
+library(MASS)
+library(car)
+library(GGally)
+library(caret)
+library(e1071)
+library(class)
+library(ggthemes)
+set.seed(1234)
+PREda <- read.csv("C:/Users/tavin/OneDrive/Desktop/DDS/Project 2/proj2main.csv")
+
+
+##remove single level factors of ID, Employee Count, Over 18, Standard Hours, and Employee Number
+
+
+PREda<-PREda[,c(-1,-10,-11,-23,-28)]
+PREda$logIncome<-log(PREda$MonthlyIncome)
+
+## and monthly rate
+PREda<-PREda[,-18]
+
+##Factor the categorical variables
+
+
+PREda$Attrition<-as.factor(PREda$Attrition)
+PREda$BusinessTravel<-as.factor(PREda$BusinessTravel)
+PREda$Department<-as.factor(PREda$Department)
+PREda$Education<-as.factor(PREda$Education)
+PREda$EducationField<-as.factor(PREda$EducationField)
+PREda$EnvironmentSatisfaction<-as.factor(PREda$EnvironmentSatisfaction)
+PREda$Gender<-as.factor(PREda$Gender)
+PREda$JobInvolvement<-as.factor(PREda$JobInvolvement)
+PREda$JobLevel<-as.factor(PREda$JobLevel)
+PREda$JobRole<-as.factor(PREda$JobRole)
+PREda$JobSatisfaction<-as.factor(PREda$JobSatisfaction)
+PREda$MaritalStatus<-as.factor(PREda$MaritalStatus)
+PREda$OverTime<-as.factor(PREda$OverTime)
+PREda$PerformanceRating<-as.factor(PREda$PerformanceRating)
+PREda$RelationshipSatisfaction<-as.factor(PREda$RelationshipSatisfaction)
+PREda$StockOptionLevel<-as.factor(PREda$StockOptionLevel)
+PREda$TrainingTimesLastYear<-as.factor(PREda$TrainingTimesLastYear)
+PREda$WorkLifeBalance<-as.factor(PREda$WorkLifeBalance)
+data<-PREda
+
+##train/test split of 70/30 %.  the magic number 609 represents 70% of the data
+
+index<-sample(1:dim(PREda)[1],609,replace=F)
+
+train<-PREda[index,]
+test<-PREda[-index,]
+
+bayes.train<-train
+bayes.test<-test
+
+
+```
+
+```{r}
+
+##looking for interesting relationship
+
+#Facet wrap of Age vs. MonthlyIncome, by Job Role
+data %>% ggplot(aes(x=Age, y=MonthlyIncome, color=JobRole)) +
+  geom_point() +
+  geom_jitter() +
+  geom_smooth(color = "black") +
+  facet_wrap(~JobRole) + #facet wrap
+  ggtitle("Monthly Income vs Age, by Job Role") +
+  labs(y="Monthly Income") +
+  scale_y_continuous(labels = scales::comma)+
+  scale_y_continuous(labels=scales::dollar_format()) + 
+  theme_economist() +
+  theme(legend.position = "None", axis.title.y=element_text(vjust=1.8))
+
+## Monthly Income vs Job Level
+
+#JobLevel vs MonthlyIncome
+data %>% ggplot(aes(x=JobLevel, y=MonthlyIncome, color=JobLevel)) +
+  geom_point() +
+  geom_jitter() +
+  ggtitle("Monthly Income vs. Job Level") +
+  labs(y="Monthly Income", x="Job Level") +
+  scale_y_continuous(labels = scales::comma)+
+  scale_y_continuous(labels=scales::dollar_format()) +
+  theme_economist() +
+  theme(legend.position = "None", axis.title.y=element_text(vjust=1.8))
+```
+
+```{r}
+
+##Graphs for Attrition Slide
+
+##Making dataframe for proportions of categorical variables
+
+require(plyr)
+##Job Role with proportion of Attrition
+
+
+data$Education<-as.factor(data$Education)
+
+
+Education.Attrition.yes<-count(as.numeric(data$JobRole[data$Attrition=="Yes"]))
+Education.Attrition.yes$level<-"Yes"
+names(Education.Attrition.yes)<-c("Education","n","level")
+Education.Attrition.yes$Education<-names(summary(data$JobRole))
+Education.Attrition.no<-count(as.numeric(data$JobRole[data$Attrition=="No"]))
+Education.Attrition.no$level<-"No"
+names(Education.Attrition.no)<-c("Education","n","level")
+Education.Attrition.no$Education<-names(summary(data$JobRole))
+Education.Attrition<-rbind(Education.Attrition.yes,Education.Attrition.no)
+
+  
+  ##graph
+Education.Attrition %>% ggplot(aes(x=as.factor(Education),y=n, fill=level)) +
+  geom_col(position="fill") +
+  scale_fill_manual(values = c("Yes" = "#025e73", "No"="#f2916d")) +
+  ggtitle("Attrition Rates by Job Role")+xlab("")+ylab("Attrition (%)")+coord_flip()+theme_economist()
+
+
+##Job Involvement with proportion of Attrition
+data$Education<-as.factor(data$Education)
+Education.Attrition
+
+Education.Attrition.yes<-count(as.numeric(data$JobInvolvement[data$Attrition=="Yes"]))
+Education.Attrition.yes$level<-"Yes"
+names(Education.Attrition.yes)<-c("Education","n","level")
+Education.Attrition.no<-count(as.numeric(data$JobInvolvement[data$Attrition=="No"]))
+Education.Attrition.no$level<-"No"
+names(Education.Attrition.no)<-c("Education","n","level")
+Education.Attrition<-rbind(Education.Attrition.yes,Education.Attrition.no)
+
+  
+##graph
+  Education.Attrition %>% ggplot(aes(x=as.factor(Education),y=n, fill=level)) +
+  geom_col(position="fill") +
+  scale_fill_manual(values = c("Yes" = "#025e73", "No"="#f2916d")) +
+  ggtitle("Attrition Rates by Job Involvement")+xlab("Job Involvement")+ylab("Attrition (%)")+theme_economist()
+  
+##Stock Option Level with proportion of Attrition
+data$Education<-as.factor(data$Education)
+Education.Attrition
+
+Education.Attrition.yes<-count(as.numeric(data$StockOptionLevel[data$Attrition=="Yes"]))
+Education.Attrition.yes$level<-"Yes"
+names(Education.Attrition.yes)<-c("Education","n","level")
+Education.Attrition.no<-count(as.numeric(data$StockOptionLevel[data$Attrition=="No"]))
+Education.Attrition.no$level<-"No"
+names(Education.Attrition.no)<-c("Education","n","level")
+Education.Attrition<-rbind(Education.Attrition.yes,Education.Attrition.no)
+
+  
+##graph
+  Education.Attrition %>% ggplot(aes(x=as.factor(Education),y=n, fill=level)) +
+  geom_col(position="fill") +
+  scale_fill_manual(values = c("Yes" = "#025e73", "No"="#f2916d")) +
+  ggtitle("Attrition Rates by Stock Option")+xlab("Stock Option Level")+ylab("Attrition (%)")+theme_economist()
+
+##override plyr
+library(tidyverse)
+```
+
+
+```{r}
+
+##showing an example of why KNN will most likely not perform well
+##the data between yes and no for attrition appears to be randomly scattered and not any definite boundary lines
+data %>% ggplot(aes(x=Age, y=MonthlyIncome, color=Attrition)) +
+  geom_point() + 
+  geom_jitter() +
+  scale_color_manual(values = c("Yes" = "#025e73", "No"="#f2916d")) +
+  ggtitle("Attrition Rates - Monthly Income vs. Age") +
+  scale_y_continuous(labels = scales::comma) +
+  scale_y_continuous(labels=scales::dollar_format()) + 
+  labs(y="Monthly Income") + 
+  theme_economist() + 
+  theme(legend.title = element_blank())
+```
+
+```{r}
+##Linear Regression showing non constant variance until log transformed
+
+##just regular monthly income
+data %>% ggplot(aes(x=Age, y=MonthlyIncome)) +
+  geom_point(color="#f2916d") + 
+  ggtitle("Monthly Income vs. Age")+theme_economist()+geom_smooth(method="lm")+ylab("Monthly Income")
+
+##log transformed Monthly income
+
+data %>% ggplot(aes(x=Age, y=log(MonthlyIncome))) +
+  geom_point(color="#f2916d") + 
+  ggtitle("Log (Monthly Income) vs. Age")+theme_economist()+geom_smooth(method="lm")+ylab("Log (Monthly Income)")
+
+
+```
+
+```{r}
+##KNN 
+
+
+##oversample minority group
+x.1<-train[train$Attrition=="Yes",]
+train.over<-train
+train.over<-rbind(train.over,x.1)
+train.over<-rbind(train.over,x.1)
+train.over<-rbind(train.over,x.1)
+train.over<-rbind(train.over,x.1)
+
+##remove categorical predictors
+
+  train.over<-train.over[,c(1,2,4,6,11,17,20,24,27,28,29,30,31)]
+
+  test.cont<-test[,c(1,2,4,6,11,17,20,24,27,28,29,30,31)]
+  
+##scaling train
+  
+tempatt<-train.over[,2]
+
+temp.2<-scale(train.over[,-2])
+temp.2<-as.data.frame(temp.2)
+temp.2$Attrition<-train.over[,2]
+
+train.over<-temp.2
+
+    ##scaling test
+
+temptest<-test.cont[,2]
+temp.3<-scale(test.cont[,-2])
+temp.3<-as.data.frame(temp.3)
+temp.3$Attrition<-test.cont[,2]
+test.cont<-temp.3
+  
+##tune k
+  
+iterations = 1
+numks = 65
+masterAcc = matrix(nrow = iterations, ncol = numks)
+masterSens = matrix(nrow = iterations, ncol = numks)
+masterSpec = matrix(nrow = iterations, ncol = numks)
+for(j in 1:iterations)
+{
+  accs = data.frame(accuracy = numeric(30), k = numeric(30))
+  
+  for(i in 1:numks)
+  {
+    classifications = knn.cv(train.over[,-13],train.over$Attrition, prob = TRUE, k = i)
+    table(classifications,train.over$Attrition)
+    CM = confusionMatrix(table(classifications,train.over$Attrition))
+    masterAcc[j,i] = CM$overall[1]
+    masterSens[j,i]=CM$byClass[1]
+    masterSpec[j,i]=CM$byClass[2]
+  }
+}
+MeanAcc = colMeans(masterAcc)
+MeanSens=colMeans(masterSens)
+MeanSpec = colMeans(masterSpec)
+par(mfrow=c(1,3))
+plot(seq(1,numks,1),MeanAcc, type = "l")
+plot(seq(1,numks,1),MeanSens, type = "l")
+plot(seq(1,numks,1),MeanSpec, type = "l")
+
+##test data for KNN
+
+classifications = knn(train.over[,-13],test.cont[,-13],train.over$Attrition, prob = TRUE, k = 3)
+table(classifications,test.cont$Attrition)
+confusionMatrix(table(classifications,test.cont$Attrition))
+
+
+
+```
+
+```{r}
+
+##remove monthly income for linear regression model
+
+train<-train[,-17]
+
+##Stepwise variable selection using AIC
+fit.lm<-lm(logIncome~.,data=train)
+step.lm<-fit.lm%>%stepAIC(trace=FALSE)
+step.lm
+fit.pred.step<-predict(step.lm,newdata=test,type="response")
+
+## RMSE calculation
+RMSE<-mean((exp(test$logIncome)-exp(fit.pred.step))^2)%>%sqrt()
+RMSE
+
+##variance of RMSE's
+variance.step<-(exp(test$logIncome)-exp(fit.pred.step))^2%>%sqrt()
+hist(variance.step)
+
+
+##vif
+
+##Job level is high, but this is for prediction so we will go ahead with it.
+vif(step.lm)
+```
+
+
+```{r}
+##Naive Bayes
+##remove highly correlated variables
+sumSpec<-data.frame(Sens=c())
+sumSens<-data.frame(Sens=c())
+
+##Loops through 100 times with different train/test splits to get average sensitivity and specificity
+for(x in 1:100){
+index<-sample(1:dim(PREda)[1],609,replace=F)
+train<-PREda[index,]
+test<-PREda[-index,]
+
+##these variables were removed in a forward-wise selection
+##if a deleted variable had a noticeable change in the test metrics
+##it was removed from the data set.
+train<-train[,-c(29,5,4,8,21,22)]
+test<-test[,-c(29,5,4,8,21,22)]
+x.1<-train[train$Attrition=="Yes",]
+train.over<-train
+train.over<-rbind(train.over,x.1)
+train.over<-rbind(train.over,x.1)
+train.over<-rbind(train.over,x.1)
+train.over<-rbind(train.over,x.1)
+#train.over<-rbind(train.over,x.1)
+#train<-train[,-c(5,4,8,18,22)]
+#test<-test[,-c(5,4,8,18,22)]
+#train<-train[,-c(5,14)]
+#test<-test[,-c(5,14)]
+model = naiveBayes(Attrition~.,data = train.over)
+confusionMatrix(table(predict(model,test[,-2]),test$Attrition))
+sumSpec<-rbind(sumSpec,confusionMatrix(table(predict(model,test[,-2]),test$Attrition))$byClass[2])
+sumSens<-rbind(sumSens,confusionMatrix(table(predict(model,test[,-2]),test$Attrition))$byClass[1])
+}
+
+##mean of 100 iterations for sensitivity and specificity
+mean(sumSpec[,1])
+mean(sumSens[,1])
+
+hist(sumSpec[,1])
+hist(sumSens[,1])
+
+##This gives the times out of 100 that the sensitivity was below .6 threshold (TRUE)
+summary(sumSpec[1]<=.6)
+summary(sumSens[1]<=.6)
+
+##Naive bayes model
+##This uses the original train test split (it was altered for the other models)
+train<-bayes.train[,-c(29,5,4,8,21,22)]
+test<-bayes.test[,-c(29,5,4,8,21,22)]
+
+##This over samples the minority "Yes" class
+x.1<-train[train$Attrition=="Yes",]
+train.over<-train
+train.over<-rbind(train.over,x.1)
+train.over<-rbind(train.over,x.1)
+train.over<-rbind(train.over,x.1)
+train.over<-rbind(train.over,x.1)
+
+##This is the test set 
+model = naiveBayes(Attrition~.,data = train.over)
+confusionMatrix(table(predict(model,test[,-2]),test$Attrition))
+
+
+```
+
+
+
